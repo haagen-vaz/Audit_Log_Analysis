@@ -2,14 +2,14 @@
                     BASELINE COMPLIANCE REPORT - ROUTERS
 ================================================================================
 Generated: 2024-10-14 00:00:00
-Audit Path: C:\Users\vasko\Documents\Plugg\Script\Audit_Log_Analysis\network_configs\routers
-Baseline:   C:\Users\vasko\Documents\Plugg\Script\Audit_Log_Analysis\network_configs\baseline\baseline-router.conf
+Audit Path: ./network_configs/routers/
+Baseline:   ./network_configs/baseline/baseline-router.conf
 
 EXECUTIVE SUMMARY
 --------------------------------------------------------------------------------
 • Routers checked: 3
 • Routers with deviations: 3
-• Total missing baseline lines: 33
+• Total missing baseline lines: 27
 
 Summary:
   - One or more routers are missing configuration lines that exist in the baseline.
@@ -21,8 +21,6 @@ DETAILED DEVIATIONS PER ROUTER
 
 Router: RT-EDGE-01.conf
 Missing lines compared to baseline:
-   • ! BASELINE Router Configuration Template
-   • ! All routers should follow this standard
    • service password-encryption
    • no ip http server
    • no ip http secure-server
@@ -36,8 +34,6 @@ Missing lines compared to baseline:
 
 Router: RT-EDGE-02.conf
 Missing lines compared to baseline:
-   • ! BASELINE Router Configuration Template
-   • ! All routers should follow this standard
    • service password-encryption
    • no ip http server
    • no ip http secure-server
@@ -50,8 +46,6 @@ Missing lines compared to baseline:
 
 Router: RT-LAGER-01.conf
 Missing lines compared to baseline:
-   • ! BASELINE Router Configuration Template
-   • ! All routers should follow this standard
    • service password-encryption
    • no ip http server
    • no ip http secure-server

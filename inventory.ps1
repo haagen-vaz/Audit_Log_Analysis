@@ -341,20 +341,29 @@ Select-Object `
 
 # --- Del 4: Filer utan backup ---
 
-# Vi antar att backuperna ligger i undermappar under network_configs\backups
+# Alla konfigfiler (original) – vi exkluderar både backups och baseline
 $allConfigFiles = Get-ChildItem -Path $basePath -Recurse -File -Include *.conf, *.rules |
-Where-Object { $_.FullName -notlike "*\backups\*" }
+Where-Object {
+    $_.FullName -notlike "*\backups\*" -and
+    $_.FullName -notlike "*\baseline\*"
+}
 
+# Alla backup-filer
 $backupFiles = Get-ChildItem -Path $backupsPath -Recurse -File -Include *.conf, *.rules
 
-# Vi jämför bara på filnamn (t.ex. RT-EDGE-01.conf)
+# Lista över endast filnamn i backup
 $backupNames = $backupFiles.Name
 
+# Hitta filer som saknar backup genom att jämföra filnamn
 $missingBackup = $allConfigFiles |
 Where-Object { $backupNames -notcontains $_.Name } |
-Select-Object Name, FullName
+Select-Object @{n = "FileName"; e = { $_.Name } }
+
+
 
 # --- Bygg security_audit.txt ---
+
+$reportPath = "security_audit.txt"
 
 $lines = @()
 
@@ -362,7 +371,7 @@ $lines += "=====================================================================
 $lines += "                     SECURITY AUDIT REPORT - TechCorp AB"
 $lines += "================================================================================"
 $lines += ("Generated: {0}" -f $now.ToString("yyyy-MM-dd HH:mm:ss"))
-$lines += ("Audit Path: {0}" -f $basePath)
+$lines += "Audit Path: ./network_configs/"
 $lines += ""
 
 # ============================
@@ -382,7 +391,7 @@ $lines += ("• Total security findings in configs: {0}" -f $totalSecurityFindin
 $lines += ("• Config files missing backup: {0}" -f $totalMissingBackups)
 $lines += ""
 
-# En kort text-sammanfattning
+# Kort sammanfattningstext
 if ($totalSecurityFindings -gt 0 -or $totalErrors -gt 0 -or $totalFailedAttempts -gt 0 -or $totalMissingBackups -gt 0) {
     $lines += "Summary:"
     if ($totalSecurityFindings -gt 0) {
@@ -440,9 +449,13 @@ $lines += "---------------------------------------------------------------------
 if ($securityFindings.Count -gt 0) {
     $lines += ("Total findings: {0}" -f $securityFindings.Count)
     $lines += ""
+    
+    # Gruppera på fil och visa filnamn (utan path)
     $grouped = $securityFindings | Group-Object File
     foreach ($g in $grouped) {
-        $lines += ("{0}:" -f $g.Name)
+        # t.ex. RT-EDGE-01.conf eller bara RT-EDGE-01
+        $fileName = [System.IO.Path]::GetFileNameWithoutExtension($g.Name)
+        $lines += ("{0}:" -f $fileName)
         foreach ($entry in $g.Group | Select-Object -First 5) {
             $lines += ("   • Line {0}: {1}" -f $entry.Line, $entry.Text)
         }
@@ -461,7 +474,9 @@ $lines += "FILES WITHOUT BACKUP"
 $lines += "--------------------------------------------------------------------------------"
 if ($missingBackup.Count -gt 0) {
     foreach ($m in $missingBackup) {
-        $lines += ("• {0}" -f $m.FullName)
+        # $m.FileName innehåller t.ex. SW-CORE-01.conf -> vi tar bara enhetsnamnet
+        $deviceName = [System.IO.Path]::GetFileNameWithoutExtension($m.FileName)
+        $lines += ("• {0}" -f $deviceName)
     }
 }
 else {
@@ -499,11 +514,11 @@ $lines += "=====================================================================
 $lines += "                                   END OF REPORT"
 $lines += "================================================================================"
 
-
 # Skriver rapporten till fil
 $lines | Set-Content -Path $reportPath -Encoding UTF8
 
 Write-Host "Färdigt! Filen security_audit.txt skapad."
+
 
 # Jämför router-konfigurationer mot baseline-router.conf
 # Använder Compare-Object för att hitta rader som finns i baseline men saknas i routern
@@ -567,8 +582,13 @@ if (-not (Test-Path $baselinePath)) {
     exit
 }
 
-$baselineLines = Get-Content -Path $baselinePath
-$routerFiles = Get-ChildItem -Path $routersPath -File -Filter *.conf
+# Läs baseline och routerfiler OCH ta bort kommentarrader
+$baselineLines = Get-Content -Path $baselinePath |
+Where-Object { $_.Trim() -notmatch '^!' -and $_.Trim() -ne "" }
+
+$routerLines = Get-Content -Path $router.FullName |
+Where-Object { $_.Trim() -notmatch '^!' -and $_.Trim() -ne "" }
+
 
 $deviations = @()
 
@@ -600,8 +620,8 @@ $lines += "=====================================================================
 $lines += "                    BASELINE COMPLIANCE REPORT - ROUTERS"
 $lines += "================================================================================"
 $lines += ("Generated: {0}" -f $now.ToString("yyyy-MM-dd HH:mm:ss"))
-$lines += ("Audit Path: {0}" -f $routersPath)
-$lines += ("Baseline:   {0}" -f $baselinePath)
+$lines += "Audit Path: ./network_configs/routers/"
+$lines += "Baseline:   ./network_configs/baseline/baseline-router.conf"
 $lines += ""
 
 # Nyckeltal till sammanfattning

@@ -2,14 +2,14 @@
                      SECURITY AUDIT REPORT - TechCorp AB
 ================================================================================
 Generated: 2024-10-14 00:00:00
-Audit Path: C:\Users\vasko\Documents\Plugg\Script\Audit_Log_Analysis\network_configs
+Audit Path: ./network_configs/
 
 EXECUTIVE SUMMARY
 --------------------------------------------------------------------------------
 • Total ERROR events in logs: 22
 • Total FAILED login attempts: 15
 • Total security findings in configs: 17
-• Config files missing backup: 9
+• Config files missing backup: 8
 
 Summary:
   - Weak or risky configuration settings were detected and should be fixed.
@@ -42,31 +42,31 @@ CONFIGURATION SECURITY FINDINGS
 --------------------------------------------------------------------------------
 Total findings: 17
 
-C:\Users\vasko\Documents\Plugg\Script\Audit_Log_Analysis\network_configs\routers\RT-EDGE-01.conf:
+RT-EDGE-01:
    • Line 27: snmp-server community public RO
    • Line 28: snmp-server community private RW
    • Line 35: password 7 0822455D0A16
 
-C:\Users\vasko\Documents\Plugg\Script\Audit_Log_Analysis\network_configs\routers\RT-EDGE-02.conf:
+RT-EDGE-02:
    • Line 7: enable password cisco123
    • Line 7: enable password cisco123
    • Line 22: snmp-server community public RO
    • Line 23: snmp-server community private RW
 
-C:\Users\vasko\Documents\Plugg\Script\Audit_Log_Analysis\network_configs\routers\RT-LAGER-01.conf:
+RT-LAGER-01:
    • Line 21: password cisco
 
-C:\Users\vasko\Documents\Plugg\Script\Audit_Log_Analysis\network_configs\switches\SW-ACCESS-01.conf:
+SW-ACCESS-01:
    • Line 7: ! ERROR: No enable secret configured
    • Line 8: enable password password
    • Line 8: enable password password
    • Line 24: snmp-server community public
    • Line 25: snmp-server community private
 
-C:\Users\vasko\Documents\Plugg\Script\Audit_Log_Analysis\network_configs\switches\SW-CORE-01.conf:
+SW-CORE-01:
    • Line 36: username admin privilege 15 secret admin
 
-C:\Users\vasko\Documents\Plugg\Script\Audit_Log_Analysis\network_configs\switches\SW-CORE-02.conf:
+SW-CORE-02:
    • Line 7: enable password Password123
    • Line 7: enable password Password123
    • Line 31: username admin password 0 admin123
@@ -74,15 +74,14 @@ C:\Users\vasko\Documents\Plugg\Script\Audit_Log_Analysis\network_configs\switche
 
 FILES WITHOUT BACKUP
 --------------------------------------------------------------------------------
-• C:\Users\vasko\Documents\Plugg\Script\Audit_Log_Analysis\network_configs\baseline\baseline-router.conf
-• C:\Users\vasko\Documents\Plugg\Script\Audit_Log_Analysis\network_configs\firewalls\FW-DC-01.rules
-• C:\Users\vasko\Documents\Plugg\Script\Audit_Log_Analysis\network_configs\firewalls\FW-DMZ-01.rules
-• C:\Users\vasko\Documents\Plugg\Script\Audit_Log_Analysis\network_configs\routers\RT-EDGE-01.conf
-• C:\Users\vasko\Documents\Plugg\Script\Audit_Log_Analysis\network_configs\routers\RT-EDGE-02.conf
-• C:\Users\vasko\Documents\Plugg\Script\Audit_Log_Analysis\network_configs\routers\RT-LAGER-01.conf
-• C:\Users\vasko\Documents\Plugg\Script\Audit_Log_Analysis\network_configs\switches\SW-ACCESS-01.conf
-• C:\Users\vasko\Documents\Plugg\Script\Audit_Log_Analysis\network_configs\switches\SW-CORE-01.conf
-• C:\Users\vasko\Documents\Plugg\Script\Audit_Log_Analysis\network_configs\switches\SW-CORE-02.conf
+• FW-DC-01
+• FW-DMZ-01
+• RT-EDGE-01
+• RT-EDGE-02
+• RT-LAGER-01
+• SW-ACCESS-01
+• SW-CORE-01
+• SW-CORE-02
 
 RECOMMENDATIONS
 --------------------------------------------------------------------------------
