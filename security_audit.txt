@@ -1,0 +1,98 @@
+================================================================================
+                     SECURITY AUDIT REPORT - TechCorp AB
+================================================================================
+Generated: 2024-10-14 00:00:00
+Audit Path: C:\Users\vasko\Documents\Plugg\Script\Audit_Log_Analysis\network_configs
+
+EXECUTIVE SUMMARY
+--------------------------------------------------------------------------------
+• Total ERROR events in logs: 22
+• Total FAILED login attempts: 15
+• Total security findings in configs: 17
+• Config files missing backup: 9
+
+Summary:
+  - Weak or risky configuration settings were detected and should be fixed.
+  - System and security logs contain ERROR events that require review.
+  - There are failed login attempts that may indicate brute force or misuse.
+  - Some configuration files appear to lack backup coverage.
+
+
+LOG ANALYSIS - ERROR SUMMARY
+--------------------------------------------------------------------------------
+Total ERROR events: 22
+
+• security-2024-10-13.log : 6 errors
+• security-2024-10-14.log : 6 errors
+• system-2024-10-13.log : 5 errors
+• system-2024-10-14.log : 5 errors
+
+FAILED LOGIN ATTEMPTS
+--------------------------------------------------------------------------------
+• 5 attempts from unknown
+• 3 attempts from 10.0.0.99
+• 2 attempts from 203.0.113.99
+• 1 attempts from 10.0.0.100
+• 1 attempts from 10.0.0.5
+• 1 attempts from 10.0.0.66
+• 1 attempts from 10.0.0.77
+• 1 attempts from 192.168.30.10
+
+CONFIGURATION SECURITY FINDINGS
+--------------------------------------------------------------------------------
+Total findings: 17
+
+C:\Users\vasko\Documents\Plugg\Script\Audit_Log_Analysis\network_configs\routers\RT-EDGE-01.conf:
+   • Line 27: snmp-server community public RO
+   • Line 28: snmp-server community private RW
+   • Line 35: password 7 0822455D0A16
+
+C:\Users\vasko\Documents\Plugg\Script\Audit_Log_Analysis\network_configs\routers\RT-EDGE-02.conf:
+   • Line 7: enable password cisco123
+   • Line 7: enable password cisco123
+   • Line 22: snmp-server community public RO
+   • Line 23: snmp-server community private RW
+
+C:\Users\vasko\Documents\Plugg\Script\Audit_Log_Analysis\network_configs\routers\RT-LAGER-01.conf:
+   • Line 21: password cisco
+
+C:\Users\vasko\Documents\Plugg\Script\Audit_Log_Analysis\network_configs\switches\SW-ACCESS-01.conf:
+   • Line 7: ! ERROR: No enable secret configured
+   • Line 8: enable password password
+   • Line 8: enable password password
+   • Line 24: snmp-server community public
+   • Line 25: snmp-server community private
+
+C:\Users\vasko\Documents\Plugg\Script\Audit_Log_Analysis\network_configs\switches\SW-CORE-01.conf:
+   • Line 36: username admin privilege 15 secret admin
+
+C:\Users\vasko\Documents\Plugg\Script\Audit_Log_Analysis\network_configs\switches\SW-CORE-02.conf:
+   • Line 7: enable password Password123
+   • Line 7: enable password Password123
+   • Line 31: username admin password 0 admin123
+
+
+FILES WITHOUT BACKUP
+--------------------------------------------------------------------------------
+• C:\Users\vasko\Documents\Plugg\Script\Audit_Log_Analysis\network_configs\baseline\baseline-router.conf
+• C:\Users\vasko\Documents\Plugg\Script\Audit_Log_Analysis\network_configs\firewalls\FW-DC-01.rules
+• C:\Users\vasko\Documents\Plugg\Script\Audit_Log_Analysis\network_configs\firewalls\FW-DMZ-01.rules
+• C:\Users\vasko\Documents\Plugg\Script\Audit_Log_Analysis\network_configs\routers\RT-EDGE-01.conf
+• C:\Users\vasko\Documents\Plugg\Script\Audit_Log_Analysis\network_configs\routers\RT-EDGE-02.conf
+• C:\Users\vasko\Documents\Plugg\Script\Audit_Log_Analysis\network_configs\routers\RT-LAGER-01.conf
+• C:\Users\vasko\Documents\Plugg\Script\Audit_Log_Analysis\network_configs\switches\SW-ACCESS-01.conf
+• C:\Users\vasko\Documents\Plugg\Script\Audit_Log_Analysis\network_configs\switches\SW-CORE-01.conf
+• C:\Users\vasko\Documents\Plugg\Script\Audit_Log_Analysis\network_configs\switches\SW-CORE-02.conf
+
+RECOMMENDATIONS
+--------------------------------------------------------------------------------
+• URGENT: Replace 'enable password' with 'enable secret'.
+• URGENT: Remove or encrypt plaintext passwords/secrets.
+• HIGH: Avoid using SNMP community strings 'public' or 'private'.
+• MEDIUM: Add missing configuration files to backup routines.
+• MEDIUM: Monitor repeated failed login attempts by IP.
+• MEDIUM: Investigate recurring ERROR events in system logs.
+
+================================================================================
+                                   END OF REPORT
+================================================================================

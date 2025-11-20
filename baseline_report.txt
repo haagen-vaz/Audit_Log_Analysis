@@ -1,0 +1,74 @@
+================================================================================
+                    BASELINE COMPLIANCE REPORT - ROUTERS
+================================================================================
+Generated: 2024-10-14 00:00:00
+Audit Path: C:\Users\vasko\Documents\Plugg\Script\Audit_Log_Analysis\network_configs\routers
+Baseline:   C:\Users\vasko\Documents\Plugg\Script\Audit_Log_Analysis\network_configs\baseline\baseline-router.conf
+
+EXECUTIVE SUMMARY
+--------------------------------------------------------------------------------
+• Routers checked: 3
+• Routers with deviations: 3
+• Total missing baseline lines: 33
+
+Summary:
+  - One or more routers are missing configuration lines that exist in the baseline.
+  - Review the detailed list below and update router configurations to match baseline.
+
+
+DETAILED DEVIATIONS PER ROUTER
+--------------------------------------------------------------------------------
+
+Router: RT-EDGE-01.conf
+Missing lines compared to baseline:
+   • ! BASELINE Router Configuration Template
+   • ! All routers should follow this standard
+   • service password-encryption
+   • no ip http server
+   • no ip http secure-server
+   • snmp-server community [COMPLEX-STRING] RO
+   • logging host [SYSLOG-SERVER]
+   • ntp server [NTP-SERVER]
+   • banner login ^C
+   • Authorized access only. All activity is monitored.
+   • ^C
+
+
+Router: RT-EDGE-02.conf
+Missing lines compared to baseline:
+   • ! BASELINE Router Configuration Template
+   • ! All routers should follow this standard
+   • service password-encryption
+   • no ip http server
+   • no ip http secure-server
+   • snmp-server community [COMPLEX-STRING] RO
+   • logging host [SYSLOG-SERVER]
+   • logging trap warnings
+   • ntp server [NTP-SERVER]
+   • Authorized access only. All activity is monitored.
+
+
+Router: RT-LAGER-01.conf
+Missing lines compared to baseline:
+   • ! BASELINE Router Configuration Template
+   • ! All routers should follow this standard
+   • service password-encryption
+   • no ip http server
+   • no ip http secure-server
+   • snmp-server community [COMPLEX-STRING] RO
+   • logging host [SYSLOG-SERVER]
+   • logging trap warnings
+   • ntp server [NTP-SERVER]
+   • banner login ^C
+   • Authorized access only. All activity is monitored.
+   • ^C
+
+
+RECOMMENDATIONS
+--------------------------------------------------------------------------------
+• HIGH: Review each router with missing lines and align its configuration to the baseline.
+• MEDIUM: Document any intentional deviations (change management) to avoid confusion later.
+
+================================================================================
+                                   END OF REPORT
+================================================================================
