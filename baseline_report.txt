@@ -1,5 +1,5 @@
 ================================================================================
-                    BASELINE COMPLIANCE REPORT - ROUTERS
+                 ROUTER BASELINE COMPLIANCE REPORT - TechCorp AB
 ================================================================================
 Generated: 2024-10-14 00:00:00
 Audit Path: ./network_configs/routers/
@@ -9,14 +9,14 @@ EXECUTIVE SUMMARY
 --------------------------------------------------------------------------------
 • Routers checked: 3
 • Routers with deviations: 3
-• Total missing baseline lines: 27
+• Total missing baseline lines: 22
 
 Summary:
   - One or more routers are missing configuration lines that exist in the baseline.
   - Review the detailed list below and update router configurations to match baseline.
 
 
-DETAILED DEVIATIONS PER ROUTER
+BASELINE DEVIATIONS PER ROUTER
 --------------------------------------------------------------------------------
 
 Router: RT-EDGE-01.conf
@@ -27,9 +27,7 @@ Missing lines compared to baseline:
    • snmp-server community [COMPLEX-STRING] RO
    • logging host [SYSLOG-SERVER]
    • ntp server [NTP-SERVER]
-   • banner login ^C
-   • Authorized access only. All activity is monitored.
-   • ^C
+   • banner login (present)
 
 
 Router: RT-EDGE-02.conf
@@ -41,7 +39,6 @@ Missing lines compared to baseline:
    • logging host [SYSLOG-SERVER]
    • logging trap warnings
    • ntp server [NTP-SERVER]
-   • Authorized access only. All activity is monitored.
 
 
 Router: RT-LAGER-01.conf
@@ -53,9 +50,7 @@ Missing lines compared to baseline:
    • logging host [SYSLOG-SERVER]
    • logging trap warnings
    • ntp server [NTP-SERVER]
-   • banner login ^C
-   • Authorized access only. All activity is monitored.
-   • ^C
+   • banner login (present)
 
 
 RECOMMENDATIONS

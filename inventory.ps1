@@ -1,9 +1,19 @@
-# Hittar alla konfigurations- och loggfiler i hela network_configs-mappen
-# Visar filnamn, sökväg, storlek i KB, senaste ändring och filtyp
+# -------------------------------------------------------------------
+# Grundvägar (paths) för hela skriptet
+# -------------------------------------------------------------------
+$rootPath = (Resolve-Path "network_configs").Path
+$logsPath = Join-Path $rootPath "logs"
+$backupsPath = Join-Path $rootPath "backups"
+$routersPath = Join-Path $rootPath "routers"
+$baselinePath = Join-Path $rootPath "baseline\baseline-router.conf"
 
-$path = "network_configs"
+# Basdatum enligt övningen
+$now = Get-Date "2024-10-14"
 
-Get-ChildItem -Path $path -Recurse -File -Include *.conf, *.rules, *.log |
+# -------------------------------------------------------------------
+# Lista alla konfig- och loggfiler
+# -------------------------------------------------------------------
+Get-ChildItem -Path $rootPath -Recurse -File -Include *.conf, *.rules, *.log |
 Select-Object `
     Name, `
 @{n = "FullPath"; e = { $_.FullName } }, `
@@ -14,13 +24,12 @@ Export-Csv "lista-konfig-och-loggfiler.csv" -NoTypeInformation -Encoding UTF8
 
 Write-Host "Färdigt! Filen lista-konfig-och-loggfiler.csv skapad."
 
-# Visar alla filer som har ändrats de senaste 7 dagarna (räknat från 2024-10-14)
+# -------------------------------------------------------------------
+# Filer ändrade senaste 7 dagarna (från 2024-10-14)
+# -------------------------------------------------------------------
+$weekAgo = $now.AddDays(-7)
 
-$path = "network_configs"
-$now = Get-Date "2024-10-14"     # basdatum enligt övningen
-$weekAgo = $now.AddDays(-7)      # sju dagar bakåt
-
-Get-ChildItem -Path $path -Recurse -File |
+Get-ChildItem -Path $rootPath -Recurse -File |
 Where-Object { $_.LastWriteTime -gt $weekAgo } |
 Sort-Object LastWriteTime -Descending |
 Select-Object `
@@ -31,12 +40,10 @@ Export-Csv "senaste-7-dagarna.csv" -NoTypeInformation -Encoding UTF8
 
 Write-Host "Färdigt! Filen senaste-7-dagarna.csv skapad."
 
-# Grupperar alla filer efter filtyp (extension)
-# Räknar hur många det finns och total storlek i MB
-
-$path = "network_configs"
-
-Get-ChildItem -Path $path -Recurse -File |
+# -------------------------------------------------------------------
+# Filtyper och total storlek
+# -------------------------------------------------------------------
+Get-ChildItem -Path $rootPath -Recurse -File |
 Group-Object Extension |
 Sort-Object Name |
 ForEach-Object {
@@ -50,13 +57,10 @@ Export-Csv "filer-per-typ-och-storlek.csv" -NoTypeInformation -Encoding UTF8
 
 Write-Host "Färdigt! Filen filer-per-typ-och-storlek.csv skapad."
 
-
-# Hittar de 5 största loggfilerna i logs-mappen
-# Visar filnamn och storlek i MB
-
-$path = "network_configs\logs"
-
-Get-ChildItem -Path $path -Recurse -File -Include *.log |
+# -------------------------------------------------------------------
+# 5 största loggfilerna
+# -------------------------------------------------------------------
+Get-ChildItem -Path $logsPath -Recurse -File -Include *.log |
 Sort-Object Length -Descending |
 Select-Object -First 5 `
 @{n = "FileName"; e = { $_.Name } }, `
@@ -66,18 +70,14 @@ Export-Csv "storsta-loggfiler.csv" -NoTypeInformation -Encoding UTF8
 
 Write-Host "Färdigt! Filen storsta-loggfiler.csv skapad."
 
-# Hittar alla IP-adresser i .conf-filer under network_configs
-# Skriver ut en lista med unika IP-adresser till en CSV-fil
-
-$path = "network_configs"
-
-# Enkel regex som matchar IP-adresser (t.ex. 192.168.1.1)
+# -------------------------------------------------------------------
+# Unika IP-adresser i .conf
+# -------------------------------------------------------------------
 $ipPattern = "\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}"
 
-Get-ChildItem -Path $path -Recurse -File -Include *.conf |
+Get-ChildItem -Path $rootPath -Recurse -File -Include *.conf |
 Select-String -Pattern $ipPattern -AllMatches |
 ForEach-Object {
-    # Går igenom alla träffar på raden och tar själva IP-texten
     $_.Matches.Value
 } |
 Sort-Object -Unique |
@@ -86,27 +86,21 @@ Export-Csv "unika-ip-adresser-i-konfig.csv" -NoTypeInformation -Encoding UTF8
 
 Write-Host "Färdigt! Filen unika-ip-adresser-i-konfig.csv skapad."
 
-# Räknar hur många gånger ERROR, FAILED och DENIED finns i varje loggfil
-# Skriver en rad per loggfil med alla tre räknare
-
-$path = "network_configs\logs"
-
-# Orden vi letar efter i loggfilerna
+# -------------------------------------------------------------------
+# ERROR / FAILED / DENIED per loggfil
+# -------------------------------------------------------------------
 $patterns = @("ERROR", "FAILED", "DENIED")
 
-Get-ChildItem -Path $path -Recurse -File -Include *.log |
+Get-ChildItem -Path $logsPath -Recurse -File -Include *.log |
 ForEach-Object {
     $file = $_
 
-    # Skapar en rad (objekt) där vi lagrar resultatet
     $row = [ordered]@{
         FileName = $file.Name
         FullPath = $file.FullName
     }
 
     foreach ($p in $patterns) {
-        # Select-String söker efter texten i filen
-        # -AllMatches gör att alla träffar räknas, inte bara första
         $count = (Select-String -Path $file.FullName -Pattern $p -AllMatches | Measure-Object).Count
         $row[$p] = $count
     }
@@ -117,24 +111,17 @@ Export-Csv "loggfel-per-fil.csv" -NoTypeInformation -Encoding UTF8
 
 Write-Host "Färdigt! Filen loggfel-per-fil.csv skapad."
 
-# Skapar config_inventory.csv med alla konfigurationsfiler
-# Tar med filnamn, sökväg inuti network_configs, storlek och senast ändrad
-
-$basePath = (Resolve-Path "network_configs").Path
-
-# Hjälpfunktion för att få sökväg "inuti" network_configs,
-# t.ex. network_configs\routers\RT-EDGE-01.conf
+# -------------------------------------------------------------------
+# config_inventory.csv (relativ sökväg inuti network_configs)
+# -------------------------------------------------------------------
 function Get-RelativePathInsideNetworkConfigs {
     param(
         [string]$fullPath
     )
-
-    # Ersätter den riktiga bas-sökvägen (C:\...\network_configs)
-    # med bara texten "network_configs"
-    return $fullPath.Replace($basePath, "network_configs")
+    return $fullPath.Replace($rootPath, "network_configs")
 }
 
-Get-ChildItem -Path $basePath -Recurse -File -Include *.conf, *.rules |
+Get-ChildItem -Path $rootPath -Recurse -File -Include *.conf, *.rules |
 Select-Object `
 @{n = "FileName"; e = { $_.Name } }, `
 @{n = "FullPath"; e = { Get-RelativePathInsideNetworkConfigs $_.FullName } }, `
@@ -144,22 +131,13 @@ Export-Csv "config_inventory.csv" -NoTypeInformation -Encoding UTF8
 
 Write-Host "Färdigt! Filen config_inventory.csv skapad."
 
-# Söker efter säkerhetsproblem i konfigurationsfiler
-# Sparar resultatet i sakerhetsproblem-i-konfig.csv
-
-$basePath = "network_configs"
-
-# Regex för olika typer av problem
-# enable password utan kryptering
+# -------------------------------------------------------------------
+# Funktion: Find-SecurityIssues (återanvänds längre ned)
+# -------------------------------------------------------------------
 $enablePasswordPattern = '(?i)^\s*enable\s+password\s+(\S+)'
-
-# password eller secret följt av ett värde (troligen klartext)
 $passwordOrSecretPattern = '(?i)\b(password|secret)\s+(\S+)\b'
-
-# SNMP community "public" eller "private"
 $snmpCommunityPattern = '(?i)snmp(-server)?\s+community\s+(public|private)\b'
 
-# Enkel funktion som kollar en fil i taget
 function Find-SecurityIssues {
     param(
         [string]$Path
@@ -168,11 +146,9 @@ function Find-SecurityIssues {
     $results = @()
     $lineNumber = 0
 
-    # Läser filen rad för rad
     foreach ($line in Get-Content -Path $Path -ErrorAction SilentlyContinue) {
         $lineNumber++
 
-        # Kollar efter "enable password"
         if ($line -match $enablePasswordPattern) {
             $results += [pscustomobject]@{
                 File  = $Path
@@ -182,9 +158,7 @@ function Find-SecurityIssues {
             }
         }
 
-        # Kollar efter password/secret i klartext
         if ($line -match $passwordOrSecretPattern) {
-            # Liten enkel filter: hoppa över typiska hashade "secret 5"
             if ($line -notmatch '(?i)\bsecret\s+(5|8|9)\b') {
                 $results += [pscustomobject]@{
                     File  = $Path
@@ -195,7 +169,6 @@ function Find-SecurityIssues {
             }
         }
 
-        # Kollar efter SNMP public/private
         if ($line -match $snmpCommunityPattern) {
             $results += [pscustomobject]@{
                 File  = $Path
@@ -209,16 +182,16 @@ function Find-SecurityIssues {
     return $results
 }
 
-# Hittar alla relevanta konfig-filer (.conf och .rules)
-$files = Get-ChildItem -Path $basePath -Recurse -File -Include *.conf, *.rules
-
+# -------------------------------------------------------------------
+# Kör Find-SecurityIssues för alla .conf/.rules och skriv CSV
+# -------------------------------------------------------------------
+$files = Get-ChildItem -Path $rootPath -Recurse -File -Include *.conf, *.rules
 $allFindings = @()
 
 foreach ($file in $files) {
     $allFindings += Find-SecurityIssues -Path $file.FullName
 }
 
-# Omvandla till CSV-vänlig form
 $allFindings |
 Select-Object `
 @{n = "File"; e = { $_.File } }, `
@@ -229,17 +202,10 @@ Export-Csv "sakerhetsproblem-i-konfig.csv" -NoTypeInformation -Encoding UTF8
 
 Write-Host "Färdigt! Filen sakerhetsproblem-i-konfig.csv skapad."
 
-# Skapar en enkel security_audit.txt med logganalys och säkerhetsfynd
-
-$basePath = (Resolve-Path "network_configs").Path
-$logsPath = Join-Path $basePath "logs"
-$backupsPath = Join-Path $basePath "backups"
-
-# Basdatum enligt övningen (kan vara bra att nämna i rapporten)
-$now = Get-Date "2024-10-14"
-
-# --- Del 1: Sammanfattning av ERROR i loggfiler ---
-
+# -------------------------------------------------------------------
+# SECURITY AUDIT REPORT (security_audit.txt)
+# -------------------------------------------------------------------
+# ERROR-sammanfattning
 $logFiles = Get-ChildItem -Path $logsPath -Recurse -File -Include *.log
 
 $errorsPerFile = foreach ($log in $logFiles) {
@@ -251,12 +217,9 @@ $errorsPerFile = foreach ($log in $logFiles) {
         Errors   = $count
     }
 }
-
 $totalErrors = ($errorsPerFile | Measure-Object Errors -Sum).Sum
 
-# --- Del 2: Misslyckade inloggningar (FAILED) per IP ---
-
-# Enkel IP-regex (räcker i denna kurs)
+# FAILED login per IP
 $ipPattern = "\d{1,3}(\.\d{1,3}){3}"
 
 $failedLogins = foreach ($log in $logFiles) {
@@ -279,92 +242,29 @@ Select-Object `
 @{n = "Attempts"; e = { $_.Count } } |
 Sort-Object Attempts -Descending
 
-# --- Del 3: Svaga konfigurationer (återanvänder mönstren från första skriptet) ---
-
-$enablePasswordPattern = '(?i)^\s*enable\s+password\s+(\S+)'
-$passwordOrSecretPattern = '(?i)\b(password|secret)\s+(\S+)\b'
-$snmpCommunityPattern = '(?i)snmp(-server)?\s+community\s+(public|private)\b'
-
-function Find-SecurityIssues {
-    param([string]$Path)
-
-    $results = @()
-    $lineNumber = 0
-
-    foreach ($line in Get-Content -Path $Path -ErrorAction SilentlyContinue) {
-        $lineNumber++
-
-        if ($line -match $enablePasswordPattern) {
-            $results += [pscustomobject]@{
-                File  = $Path
-                Line  = $lineNumber
-                Issue = "Enable password (ej krypterad)"
-                Text  = $line.Trim()
-            }
-        }
-
-        if ($line -match $passwordOrSecretPattern) {
-            if ($line -notmatch '(?i)\bsecret\s+(5|8|9)\b') {
-                $results += [pscustomobject]@{
-                    File  = $Path
-                    Line  = $lineNumber
-                    Issue = "Klartext password/secret"
-                    Text  = $line.Trim()
-                }
-            }
-        }
-
-        if ($line -match $snmpCommunityPattern) {
-            $results += [pscustomobject]@{
-                File  = $Path
-                Line  = $lineNumber
-                Issue = "SNMP community public/private"
-                Text  = $line.Trim()
-            }
-        }
-    }
-
-    return $results
-}
-
-$configFiles = Get-ChildItem -Path $basePath -Recurse -File -Include *.conf, *.rules
+# Säkerhetsfynd i configs (återanvänder Find-SecurityIssues)
+$configFiles = Get-ChildItem -Path $rootPath -Recurse -File -Include *.conf, *.rules
 $securityFindings = @()
 foreach ($cf in $configFiles) {
     $securityFindings += Find-SecurityIssues -Path $cf.FullName
 }
 
-$securityByFile = $securityFindings |
-Group-Object File |
-Select-Object `
-@{n = "File"; e = { $_.Name } }, `
-@{n = "Issues"; e = { $_.Count } }
-
-# --- Del 4: Filer utan backup ---
-
-# Alla konfigfiler (original) – vi exkluderar både backups och baseline
-$allConfigFiles = Get-ChildItem -Path $basePath -Recurse -File -Include *.conf, *.rules |
+# Filer utan backup
+$allConfigFiles = Get-ChildItem -Path $rootPath -Recurse -File -Include *.conf, *.rules |
 Where-Object {
     $_.FullName -notlike "*\backups\*" -and
     $_.FullName -notlike "*\baseline\*"
 }
 
-# Alla backup-filer
 $backupFiles = Get-ChildItem -Path $backupsPath -Recurse -File -Include *.conf, *.rules
-
-# Lista över endast filnamn i backup
 $backupNames = $backupFiles.Name
 
-# Hitta filer som saknar backup genom att jämföra filnamn
 $missingBackup = $allConfigFiles |
 Where-Object { $backupNames -notcontains $_.Name } |
 Select-Object @{n = "FileName"; e = { $_.Name } }
 
-
-
-# --- Bygg security_audit.txt ---
-
+# Bygg security_audit.txt
 $reportPath = "security_audit.txt"
-
 $lines = @()
 
 $lines += "================================================================================"
@@ -374,13 +274,10 @@ $lines += ("Generated: {0}" -f $now.ToString("yyyy-MM-dd HH:mm:ss"))
 $lines += "Audit Path: ./network_configs/"
 $lines += ""
 
-# ============================
 # EXECUTIVE SUMMARY
-# ============================
 $lines += "EXECUTIVE SUMMARY"
 $lines += "--------------------------------------------------------------------------------"
 
-# Nyckeltal till sammanfattningen
 $totalFailedAttempts = ($failedSummary | Measure-Object Attempts -Sum).Sum
 $totalSecurityFindings = $securityFindings.Count
 $totalMissingBackups = $missingBackup.Count
@@ -391,7 +288,6 @@ $lines += ("• Total security findings in configs: {0}" -f $totalSecurityFindin
 $lines += ("• Config files missing backup: {0}" -f $totalMissingBackups)
 $lines += ""
 
-# Kort sammanfattningstext
 if ($totalSecurityFindings -gt 0 -or $totalErrors -gt 0 -or $totalFailedAttempts -gt 0 -or $totalMissingBackups -gt 0) {
     $lines += "Summary:"
     if ($totalSecurityFindings -gt 0) {
@@ -413,9 +309,7 @@ else {
 $lines += ""
 $lines += ""
 
-# ============================
-# LOG ANALYSIS - ERROR SUMMARY
-# ============================
+# LOG ANALYSIS
 $lines += "LOG ANALYSIS - ERROR SUMMARY"
 $lines += "--------------------------------------------------------------------------------"
 $lines += ("Total ERROR events: {0}" -f $totalErrors)
@@ -426,9 +320,7 @@ foreach ($row in $errorsPerFile | Where-Object { $_.Errors -gt 0 }) {
 }
 $lines += ""
 
-# ============================
 # FAILED LOGIN ATTEMPTS
-# ============================
 $lines += "FAILED LOGIN ATTEMPTS"
 $lines += "--------------------------------------------------------------------------------"
 if ($failedSummary.Count -gt 0) {
@@ -441,19 +333,14 @@ else {
 }
 $lines += ""
 
-# ============================
 # CONFIGURATION SECURITY FINDINGS
-# ============================
 $lines += "CONFIGURATION SECURITY FINDINGS"
 $lines += "--------------------------------------------------------------------------------"
 if ($securityFindings.Count -gt 0) {
     $lines += ("Total findings: {0}" -f $securityFindings.Count)
     $lines += ""
-    
-    # Gruppera på fil och visa filnamn (utan path)
     $grouped = $securityFindings | Group-Object File
     foreach ($g in $grouped) {
-        # t.ex. RT-EDGE-01.conf eller bara RT-EDGE-01
         $fileName = [System.IO.Path]::GetFileNameWithoutExtension($g.Name)
         $lines += ("{0}:" -f $fileName)
         foreach ($entry in $g.Group | Select-Object -First 5) {
@@ -467,14 +354,11 @@ else {
 }
 $lines += ""
 
-# ============================
 # FILES WITHOUT BACKUP
-# ============================
 $lines += "FILES WITHOUT BACKUP"
 $lines += "--------------------------------------------------------------------------------"
 if ($missingBackup.Count -gt 0) {
     foreach ($m in $missingBackup) {
-        # $m.FileName innehåller t.ex. SW-CORE-01.conf -> vi tar bara enhetsnamnet
         $deviceName = [System.IO.Path]::GetFileNameWithoutExtension($m.FileName)
         $lines += ("• {0}" -f $deviceName)
     }
@@ -484,9 +368,7 @@ else {
 }
 $lines += ""
 
-# ============================
 # RECOMMENDATIONS
-# ============================
 $lines += "RECOMMENDATIONS"
 $lines += "--------------------------------------------------------------------------------"
 
@@ -514,44 +396,58 @@ $lines += "=====================================================================
 $lines += "                                   END OF REPORT"
 $lines += "================================================================================"
 
-# Skriver rapporten till fil
 $lines | Set-Content -Path $reportPath -Encoding UTF8
-
 Write-Host "Färdigt! Filen security_audit.txt skapad."
 
+# -------------------------------------------------------------------
+# BASELINE-JÄMFÖRELSE FÖR ROUTERS
+# -------------------------------------------------------------------
+function Normalize-ConfigForBaseline {
+    param([string]$Path)
 
-# Jämför router-konfigurationer mot baseline-router.conf
-# Använder Compare-Object för att hitta rader som finns i baseline men saknas i routern
+    $insideBanner = $false
 
-$basePath = (Resolve-Path "network_configs").Path
-$baselinePath = Join-Path $basePath "baseline\baseline-router.conf"
-$routersPath = Join-Path $basePath "routers"
+    Get-Content -Path $Path | ForEach-Object {
+        $raw = $_
+        $line = $raw.Trim()
+
+        if ($line -like "banner login*") {
+            $insideBanner = $true
+            return
+        }
+
+        if ($insideBanner) {
+            if ($line -eq "^C") {
+                $insideBanner = $false
+                return 'banner login (present)'
+            }
+            return
+        }
+
+        $raw
+    }
+}
 
 if (-not (Test-Path $baselinePath)) {
     Write-Host "Hittar inte baseline-router.conf. Kontrollera sökvägen:" $baselinePath
     exit
 }
 
-$baselineLines = Get-Content -Path $baselinePath
-
-# Hittar alla routerkonfigar (t.ex. RT-EDGE-01.conf)
 $routerFiles = Get-ChildItem -Path $routersPath -File -Filter *.conf
+
+$baselineLinesClean = Normalize-ConfigForBaseline -Path $baselinePath |
+Where-Object { $_.Trim() -notmatch '^!' -and $_.Trim() -ne "" }
 
 $results = @()
 
 foreach ($router in $routerFiles) {
-    $routerLines = Get-Content -Path $router.FullName
+    $routerLinesClean = Normalize-ConfigForBaseline -Path $router.FullName |
+    Where-Object { $_.Trim() -notmatch '^!' -and $_.Trim() -ne "" }
 
-    # Compare-Object:
-    # -ReferenceObject = baseline
-    # -DifferenceObject = router
-    # SideIndicator "<=" betyder: finns i baseline men inte i router
-    $diff = Compare-Object -ReferenceObject $baselineLines -DifferenceObject $routerLines -IncludeEqual:$false
-
+    $diff = Compare-Object -ReferenceObject $baselineLinesClean -DifferenceObject $routerLinesClean -IncludeEqual:$false
     $missing = $diff | Where-Object { $_.SideIndicator -eq "<=" }
 
     foreach ($entry in $missing) {
-        # Tar bort tomma rader så vi inte skräpar ned
         if ($entry.InputObject.Trim().Length -gt 0) {
             $results += [pscustomobject]@{
                 RouterFile  = $router.Name
@@ -561,77 +457,30 @@ foreach ($router in $routerFiles) {
     }
 }
 
-# Sparar alla avvikelser till CSV
 $results |
 Export-Csv "baseline-avvikelser-router.csv" -NoTypeInformation -Encoding UTF8
 
 Write-Host "Färdigt! Filen baseline-avvikelser-router.csv skapad."
 
-# Skapar en baseline-rapport för routerkonfigurationer
-# Jämför varje router-*.conf mot baseline\baseline-router.conf
-# Skriver resultat till baseline_report.txt med snygg layout
-
-$basePath = (Resolve-Path "network_configs").Path
-$baselinePath = Join-Path $basePath "baseline\baseline-router.conf"
-$routersPath = Join-Path $basePath "routers"
-
-$now = Get-Date "2024-10-14"
-
-if (-not (Test-Path $baselinePath)) {
-    Write-Host "Hittar inte baseline-router.conf. Kontrollera sökvägen:" $baselinePath
-    exit
-}
-
-# Läs baseline och routerfiler OCH ta bort kommentarrader
-$baselineLines = Get-Content -Path $baselinePath |
-Where-Object { $_.Trim() -notmatch '^!' -and $_.Trim() -ne "" }
-
-$routerLines = Get-Content -Path $router.FullName |
-Where-Object { $_.Trim() -notmatch '^!' -and $_.Trim() -ne "" }
-
-
-$deviations = @()
-
-foreach ($router in $routerFiles) {
-    $routerLines = Get-Content -Path $router.FullName
-
-    # Compare-Object:
-    # "<=" betyder: raden finns i baseline men inte i routern
-    $diff = Compare-Object -ReferenceObject $baselineLines -DifferenceObject $routerLines -IncludeEqual:$false
-    $missing = $diff | Where-Object { $_.SideIndicator -eq "<=" }
-
-    foreach ($entry in $missing) {
-        if ($entry.InputObject.Trim().Length -gt 0) {
-            $deviations += [pscustomobject]@{
-                RouterFile  = $router.Name
-                MissingLine = $entry.InputObject.Trim()
-            }
-        }
-    }
-}
-
-# Gruppera avvikelser per router
+# baseline_report.txt
+$deviations = $results
 $groupedDeviations = $deviations | Group-Object RouterFile
 
 $reportPath = "baseline_report.txt"
 $lines = @()
 
 $lines += "================================================================================"
-$lines += "                    BASELINE COMPLIANCE REPORT - ROUTERS"
+$lines += "                 ROUTER BASELINE COMPLIANCE REPORT - TechCorp AB"
 $lines += "================================================================================"
 $lines += ("Generated: {0}" -f $now.ToString("yyyy-MM-dd HH:mm:ss"))
 $lines += "Audit Path: ./network_configs/routers/"
 $lines += "Baseline:   ./network_configs/baseline/baseline-router.conf"
 $lines += ""
 
-# Nyckeltal till sammanfattning
 $totalRouters = $routerFiles.Count
 $totalDeviationLines = $deviations.Count
 $routersWithIssues = ($groupedDeviations | Measure-Object).Count
 
-# ============================
-# EXECUTIVE SUMMARY
-# ============================
 $lines += "EXECUTIVE SUMMARY"
 $lines += "--------------------------------------------------------------------------------"
 $lines += ("• Routers checked: {0}" -f $totalRouters)
@@ -650,10 +499,7 @@ else {
 $lines += ""
 $lines += ""
 
-# ============================
-# DETAILED DEVIATIONS PER ROUTER
-# ============================
-$lines += "DETAILED DEVIATIONS PER ROUTER"
+$lines += "BASELINE DEVIATIONS PER ROUTER"
 $lines += "--------------------------------------------------------------------------------"
 
 if ($totalDeviationLines -gt 0) {
@@ -672,9 +518,6 @@ else {
 }
 $lines += ""
 
-# ============================
-# RECOMMENDATIONS
-# ============================
 $lines += "RECOMMENDATIONS"
 $lines += "--------------------------------------------------------------------------------"
 if ($totalDeviationLines -gt 0) {
