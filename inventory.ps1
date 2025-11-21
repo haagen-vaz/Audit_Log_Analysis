@@ -146,41 +146,52 @@ function Find-SecurityIssues {
     $results = @()
     $lineNumber = 0
 
+    # Läser filen rad för rad
     foreach ($line in Get-Content -Path $Path -ErrorAction SilentlyContinue) {
         $lineNumber++
+        $trimmed = $line.Trim()
 
+        # 1) Kolla först efter "enable password" (alltid osäkert)
         if ($line -match $enablePasswordPattern) {
             $results += [pscustomobject]@{
                 File  = $Path
                 Line  = $lineNumber
                 Issue = "Enable password (ej krypterad)"
-                Text  = $line.Trim()
+                Text  = $trimmed
             }
+
+            # Viktigt: hoppa över resten av kontrollerna för denna rad
+            # så att vi inte får dubbla findings på samma rad
+            continue
         }
 
+        # 2) Kolla efter password/secret i klartext
+        # (men hoppa över typiska hashade secret 5/8/9)
         if ($line -match $passwordOrSecretPattern) {
             if ($line -notmatch '(?i)\bsecret\s+(5|8|9)\b') {
                 $results += [pscustomobject]@{
                     File  = $Path
                     Line  = $lineNumber
                     Issue = "Klartext password/secret"
-                    Text  = $line.Trim()
+                    Text  = $trimmed
                 }
             }
         }
 
+        # 3) Kolla efter SNMP community public/private (osäkert)
         if ($line -match $snmpCommunityPattern) {
             $results += [pscustomobject]@{
                 File  = $Path
                 Line  = $lineNumber
                 Issue = "SNMP community public/private"
-                Text  = $line.Trim()
+                Text  = $trimmed
             }
         }
     }
 
     return $results
 }
+
 
 # -------------------------------------------------------------------
 # Kör Find-SecurityIssues för alla .conf/.rules och skriv CSV
@@ -218,6 +229,19 @@ $errorsPerFile = foreach ($log in $logFiles) {
     }
 }
 $totalErrors = ($errorsPerFile | Measure-Object Errors -Sum).Sum
+# --- ALL ERROR EVENTS FROM LOG FILES ---
+
+$allErrorEvents = foreach ($log in $logFiles) {
+    Select-String -Path $log.FullName -Pattern "ERROR" -AllMatches |
+    ForEach-Object {
+        [pscustomobject]@{
+            File = $log.Name
+            Line = $_.LineNumber
+            Text = $_.Line.Trim()
+        }
+    }
+}
+
 
 # FAILED login per IP
 $ipPattern = "\d{1,3}(\.\d{1,3}){3}"
@@ -242,6 +266,13 @@ Select-Object `
 @{n = "Attempts"; e = { $_.Count } } |
 Sort-Object Attempts -Descending
 
+# --- Public IP detection for recommendations ---
+$publicIps = $failedSummary | Where-Object {
+    $_.IP -ne "unknown" -and
+    $_.IP -notmatch '^(10\.|192\.168\.|172\.(1[6-9]|2[0-9]|3[0-1])\.)'
+}
+
+
 # Säkerhetsfynd i configs (återanvänder Find-SecurityIssues)
 $configFiles = Get-ChildItem -Path $rootPath -Recurse -File -Include *.conf, *.rules
 $securityFindings = @()
@@ -249,19 +280,38 @@ foreach ($cf in $configFiles) {
     $securityFindings += Find-SecurityIssues -Path $cf.FullName
 }
 
+# -------------------------------------------------------------------
 # Filer utan backup
+# -------------------------------------------------------------------
+
+# Alla konfigfiler (original) – exkludera backups och baseline
 $allConfigFiles = Get-ChildItem -Path $rootPath -Recurse -File -Include *.conf, *.rules |
 Where-Object {
     $_.FullName -notlike "*\backups\*" -and
     $_.FullName -notlike "*\baseline\*"
 }
 
-$backupFiles = Get-ChildItem -Path $backupsPath -Recurse -File -Include *.conf, *.rules
-$backupNames = $backupFiles.Name
+# Alla backup-filer (.conf/.rules direkta kopior + .bak-filer)
+$backupFiles = Get-ChildItem -Path $backupsPath -Recurse -File -Include *.conf, *.rules, *.bak
 
+# Normalisera backup-namn:
+# - om det är .bak  → använd BaseName (t.ex. RT-EDGE-01.conf.bak → RT-EDGE-01.conf)
+# - annars använd Name (t.ex. FW-DMZ-01.rules)
+$backupConfigNames = $backupFiles |
+ForEach-Object {
+    if ($_.Extension -eq ".bak") {
+        $_.BaseName
+    }
+    else {
+        $_.Name
+    }
+}
+
+# Hitta originalfiler som inte har någon matchande backup
 $missingBackup = $allConfigFiles |
-Where-Object { $backupNames -notcontains $_.Name } |
+Where-Object { $backupConfigNames -notcontains $_.Name } |
 Select-Object @{n = "FileName"; e = { $_.Name } }
+
 
 # Bygg security_audit.txt
 $reportPath = "security_audit.txt"
@@ -287,6 +337,16 @@ $lines += ("• Total FAILED login attempts: {0}" -f $totalFailedAttempts)
 $lines += ("• Total security findings in configs: {0}" -f $totalSecurityFindings)
 $lines += ("• Config files missing backup: {0}" -f $totalMissingBackups)
 $lines += ""
+# Count how many files of each type were analyzed
+$totalConfigFiles = (Get-ChildItem -Path $rootPath -Recurse -File -Include *.conf, *.rules).Count
+$totalLogFiles = (Get-ChildItem -Path $logsPath -Recurse -File -Include *.log).Count
+$totalBackupFiles = (Get-ChildItem -Path $backupsPath -Recurse -File -Include *.conf, *.rules, *.bak).Count
+$totalFiles = $totalConfigFiles + $totalLogFiles + $totalBackupFiles
+
+$lines += ("• Files analyzed: {0} total ({1} config, {2} logs, {3} backups)" -f `
+        $totalFiles, $totalConfigFiles, $totalLogFiles, $totalBackupFiles)
+$lines += ""
+
 
 if ($totalSecurityFindings -gt 0 -or $totalErrors -gt 0 -or $totalFailedAttempts -gt 0 -or $totalMissingBackups -gt 0) {
     $lines += "Summary:"
@@ -309,14 +369,67 @@ else {
 $lines += ""
 $lines += ""
 
-# LOG ANALYSIS
-$lines += "LOG ANALYSIS - ERROR SUMMARY"
+# ============================
+# ALL ERROR EVENTS
+# ============================
+$lines += "ALL ERROR EVENTS"
 $lines += "--------------------------------------------------------------------------------"
 $lines += ("Total ERROR events: {0}" -f $totalErrors)
 $lines += ""
 
-foreach ($row in $errorsPerFile | Where-Object { $_.Errors -gt 0 }) {
-    $lines += ("• {0} : {1} errors" -f $row.FileName, $row.Errors)
+if ($totalErrors -gt 0) {
+    # Gruppera efter fil
+    $groupedErrors = $allErrorEvents | Group-Object File
+
+    foreach ($group in $groupedErrors) {
+        $lines += ("{0}:" -f $group.Name)
+        foreach ($err in $group.Group) {
+            $lines += ("   • Line {0}: {1}" -f $err.Line, $err.Text)
+        }
+        $lines += ""
+    }
+} 
+else {
+    $lines += "No ERROR events found in logs."
+}
+$lines += ""
+
+# --- WARNING EVENTS FROM LOG FILES ---
+
+$warningEvents = foreach ($log in $logFiles) {
+    Select-String -Path $log.FullName -Pattern "WARNING" -AllMatches |
+    ForEach-Object {
+        [pscustomobject]@{
+            File = $log.Name
+            Line = $_.LineNumber
+            Text = $_.Line.Trim()
+        }
+    }
+}
+
+$warningCount = $warningEvents.Count
+
+# ============================
+# WARNING EVENTS
+# ============================
+$lines += "WARNING EVENTS"
+$lines += "--------------------------------------------------------------------------------"
+$lines += ("Total WARNING events: {0}" -f $warningCount)
+$lines += ""
+
+if ($warningCount -gt 0) {
+    # Group warnings per file
+    $warningsGrouped = $warningEvents | Group-Object File
+    foreach ($group in $warningsGrouped) {
+        $lines += ("{0}:" -f $group.Name)
+        foreach ($event in $group.Group) {
+            $lines += ("   • Line {0}: {1}" -f $event.Line, $event.Text)
+        }
+        $lines += ""
+    }
+}
+else {
+    $lines += "No WARNING events found in logs."
 }
 $lines += ""
 
@@ -368,25 +481,46 @@ else {
 }
 $lines += ""
 
+# ============================
 # RECOMMENDATIONS
+# ============================
 $lines += "RECOMMENDATIONS"
 $lines += "--------------------------------------------------------------------------------"
 
+# 1. Enable password (always insecure)
 if ($securityFindings | Where-Object { $_.Issue -match "Enable password" }) {
     $lines += "• URGENT: Replace 'enable password' with 'enable secret'."
 }
+
+# 2. Plaintext credentials
 if ($securityFindings | Where-Object { $_.Issue -match "Klartext" }) {
     $lines += "• URGENT: Remove or encrypt plaintext passwords/secrets."
 }
+
+# 3. SNMP insecure communities
 if ($securityFindings | Where-Object { $_.Issue -match "SNMP" }) {
     $lines += "• HIGH: Avoid using SNMP community strings 'public' or 'private'."
 }
+
+# 4. Public-IP login attempts
+if ($publicIps.Count -gt 0) {
+    $lines += "• HIGH: Investigate failed login attempts from public IP addresses:"
+    foreach ($entry in $publicIps) {
+        $lines += ("    - {0} ({1} attempts)" -f $entry.IP, $entry.Attempts)
+    }
+}
+
+# 5. Missing backups
 if ($missingBackup.Count -gt 0) {
     $lines += "• MEDIUM: Add missing configuration files to backup routines."
 }
+
+# 6. Repeated failed internal logins
 if ($failedSummary.Count -gt 0) {
     $lines += "• MEDIUM: Monitor repeated failed login attempts by IP."
 }
+
+# 7. ERROR events in system logs
 if ($totalErrors -gt 0) {
     $lines += "• MEDIUM: Investigate recurring ERROR events in system logs."
 }
@@ -395,6 +529,7 @@ $lines += ""
 $lines += "================================================================================"
 $lines += "                                   END OF REPORT"
 $lines += "================================================================================"
+
 
 $lines | Set-Content -Path $reportPath -Encoding UTF8
 Write-Host "Färdigt! Filen security_audit.txt skapad."
@@ -441,21 +576,52 @@ Where-Object { $_.Trim() -notmatch '^!' -and $_.Trim() -ne "" }
 $results = @()
 
 foreach ($router in $routerFiles) {
+    # Router-konfig, normaliserad (banner + kommentarer bort)
     $routerLinesClean = Normalize-ConfigForBaseline -Path $router.FullName |
     Where-Object { $_.Trim() -notmatch '^!' -and $_.Trim() -ne "" }
 
+    # Jämför baseline vs router
     $diff = Compare-Object -ReferenceObject $baselineLinesClean -DifferenceObject $routerLinesClean -IncludeEqual:$false
-    $missing = $diff | Where-Object { $_.SideIndicator -eq "<=" }
 
-    foreach ($entry in $missing) {
-        if ($entry.InputObject.Trim().Length -gt 0) {
+    foreach ($entry in $diff) {
+        # Vi bryr oss bara om rader som finns i baseline men inte i routern
+        if ($entry.SideIndicator -ne "<=") { continue }
+
+        $line = $entry.InputObject.Trim()
+        if ($line.Length -eq 0) { continue }
+
+        $skip = $false
+
+        # 1) Baseline säger: snmp-server community [COMPLEX-STRING] RO
+        #    Router har t.ex: snmp-server community hemligtstring RO
+        if ($line -match '^\s*snmp-server\s+community\s+\[.+\]') {
+            if ($routerLinesClean -match '^\s*snmp-server\s+community\s+') {
+                $skip = $true  # kravet uppfyllt, flagga inte som missing
+            }
+        }
+        # 2) Baseline: logging host [SYSLOG-SERVER]
+        elseif ($line -match '^\s*logging\s+host\s+\[.+\]') {
+            if ($routerLinesClean -match '^\s*logging\s+host\s+') {
+                $skip = $true
+            }
+        }
+        # 3) Baseline: ntp server [NTP-SERVER]
+        elseif ($line -match '^\s*ntp\s+server\s+\[.+\]') {
+            if ($routerLinesClean -match '^\s*ntp\s+server\s+') {
+                $skip = $true
+            }
+        }
+
+        # Om vi inte ska hoppa över raden → lägg till som avvikelse
+        if (-not $skip) {
             $results += [pscustomobject]@{
                 RouterFile  = $router.Name
-                MissingLine = $entry.InputObject.Trim()
+                MissingLine = $line
             }
         }
     }
 }
+
 
 $results |
 Export-Csv "baseline-avvikelser-router.csv" -NoTypeInformation -Encoding UTF8
